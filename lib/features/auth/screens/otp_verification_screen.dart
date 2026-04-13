@@ -1,0 +1,296 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../../core/config/app_config.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/radii.dart';
+import '../../../core/theme/spacing.dart';
+import '../../../core/widgets/buttons.dart';
+import '../../../core/widgets/cards.dart';
+import '../../../core/widgets/status_widgets.dart';
+import '../widgets/auth_scaffold.dart';
+
+class OtpVerificationScreen extends StatefulWidget {
+  const OtpVerificationScreen({
+    super.key,
+    required this.phoneNumber,
+    this.otpSessionId,
+    this.debugHelperMessage,
+    this.otpLength = 6,
+    required this.onVerified,
+  });
+
+  final String phoneNumber;
+  final String? otpSessionId;
+  final String? debugHelperMessage;
+  final int otpLength;
+  final Function(Map<String, dynamic> session) onVerified;
+
+  @override
+  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+}
+
+class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
+  late final List<TextEditingController> _controllers;
+  late final List<FocusNode> _focusNodes;
+  late final int _otpLength;
+  late String? _otpSessionId;
+  late String? _debugHelperMessage;
+
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _otpLength = widget.otpLength;
+    _controllers = List.generate(_otpLength, (_) => TextEditingController());
+    _focusNodes = List.generate(_otpLength, (_) => FocusNode());
+    _otpSessionId = widget.otpSessionId;
+    _debugHelperMessage = widget.debugHelperMessage;
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    for (final node in _focusNodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onOtpChanged(String value, int index) {
+    if (value.length > 1) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').split('');
+      for (var i = 0; i < digits.length && i + index < _otpLength; i++) {
+        _controllers[index + i].value = TextEditingValue(
+          text: digits[i],
+          selection: const TextSelection.collapsed(offset: 1),
+        );
+      }
+      final nextIndex = (index + digits.length).clamp(0, _otpLength - 1);
+      FocusScope.of(context).requestFocus(_focusNodes[nextIndex]);
+    } else if (value.length == 1 && index < _otpLength - 1) {
+      FocusScope.of(context).requestFocus(_focusNodes[index + 1]);
+    } else if (value.isEmpty && index > 0) {
+      FocusScope.of(context).requestFocus(_focusNodes[index - 1]);
+    }
+
+    if (_controllers.every((controller) => controller.text.isNotEmpty)) {
+      _verifyOtp();
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    final otpCode = _controllers.map((controller) => controller.text).join();
+    if (otpCode.length != _otpLength) {
+      StatusSnackbar.show(
+        context,
+        message: 'Enter the full $_otpLength-digit code.',
+        tone: StatusTone.warning,
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.verifyOtp(
+        phoneNumber: widget.phoneNumber,
+        otpCode: otpCode,
+        otpSessionId: _otpSessionId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _isLoading = false);
+
+      if (response['success'] != true) {
+        StatusSnackbar.show(
+          context,
+          message: response['message']?.toString() ?? 'Verification failed.',
+          tone: StatusTone.error,
+        );
+        return;
+      }
+
+      widget.onVerified(Map<String, dynamic>.from(response['session'] as Map));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _isLoading = false);
+      StatusSnackbar.show(
+        context,
+        message: 'An error occurred: $error',
+        tone: StatusTone.error,
+      );
+    }
+  }
+
+  Future<void> _handleResendOtp() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.resendOtp(
+        phoneNumber: widget.phoneNumber,
+        otpSessionId: _otpSessionId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+        _otpSessionId = response['otp_session_id']?.toString() ?? _otpSessionId;
+        final debugPayload = response['debug'];
+        _debugHelperMessage = debugPayload is Map
+            ? debugPayload['helper_message']?.toString() ?? _debugHelperMessage
+            : _debugHelperMessage;
+      });
+
+      if (response['success'] != true) {
+        StatusSnackbar.show(
+          context,
+          message: response['message']?.toString() ?? 'Unable to resend OTP.',
+          tone: StatusTone.error,
+        );
+        return;
+      }
+
+      for (final controller in _controllers) {
+        controller.clear();
+      }
+
+      FocusScope.of(context).requestFocus(_focusNodes.first);
+      StatusSnackbar.show(
+        context,
+        message: response['message']?.toString() ?? 'A new OTP was sent.',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _isLoading = false);
+      StatusSnackbar.show(
+        context,
+        message: 'An error occurred: $error',
+        tone: StatusTone.error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showDebugHelper =
+        AppConfig.showDebugOtpHelper &&
+        _debugHelperMessage != null &&
+        _debugHelperMessage!.isNotEmpty;
+
+    return AuthScaffold(
+      heroIcon: Icons.pin_outlined,
+      eyebrow: 'Verification',
+      title: 'Enter your code',
+      subtitle:
+          'We sent a $_otpLength-digit code to ${widget.phoneNumber}. Enter it below to continue into GuardianNode.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showDebugHelper)
+            InfoBanner(title: 'Debug helper', message: _debugHelperMessage!),
+          if (showDebugHelper) const SizedBox(height: AppSpacing.lg),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadii.card,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = AppSpacing.xs;
+                final width =
+                    ((constraints.maxWidth - ((_otpLength - 1) * spacing)) /
+                            _otpLength)
+                        .clamp(40.0, 52.0)
+                        .toDouble();
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(
+                    _otpLength,
+                    (index) => SizedBox(
+                      width: width,
+                      child: TextField(
+                        controller: _controllers[index],
+                        focusNode: _focusNodes[index],
+                        enabled: !_isLoading,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        maxLength: index == 0 ? _otpLength : 1,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(color: AppColors.trustBlueDark),
+                        decoration: const InputDecoration(
+                          counterText: '',
+                          contentPadding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
+                        ),
+                        onChanged: (value) => _onOtpChanged(value, index),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: const [
+              Expanded(
+                child: StatTile(
+                  label: 'Security',
+                  value: 'OTP',
+                  helper: 'Phone verified',
+                  tone: StatusTone.info,
+                ),
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: StatTile(
+                  label: 'Length',
+                  value: 'Dynamic',
+                  helper: 'Backend controlled',
+                  tone: StatusTone.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          PrimaryButton(
+            text: 'Verify and continue',
+            icon: Icons.verified_outlined,
+            isLoading: _isLoading,
+            onPressed: _verifyOtp,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          OutlineActionButton(
+            text: 'Resend code',
+            onPressed: _isLoading ? null : _handleResendOtp,
+            icon: Icons.refresh_rounded,
+          ),
+        ],
+      ),
+    );
+  }
+}
