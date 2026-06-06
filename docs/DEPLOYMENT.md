@@ -51,17 +51,27 @@ https://guidiannode-production.up.railway.app/privacy-policy
 https://guidiannode-production.up.railway.app/data-deletion
 ```
 
-The Docker deployment definition is in `server/Dockerfile`; `render.yaml` is a Render starting point.
+Docker deployment definitions are available at `Dockerfile` for repository-root
+deployments and `server/Dockerfile` for backend-root deployments.
+`render.yaml` is a Render starting point.
 
-For Railway, configure the backend service with:
+The repository root now contains `Dockerfile`, `.dockerignore`, and
+`railway.json`, so Railway can deploy the backend correctly even when the
+service Root Directory remains `/`.
+
+Recommended Railway configuration:
 
 ```text
-Root Directory: /server
-Config File Path: /server/railway.json
+Root Directory: /
+Config File Path: /railway.json
 Healthcheck Path: /health
 ```
 
-Paste `server/railway.variables.example.json` into Railway's Variables Raw Editor, then replace every placeholder before deploying.
+Alternatively, the older `/server` deployment layout remains supported with
+Root Directory `/server` and Config File Path `/server/railway.json`.
+
+Paste `server/railway.variables.example.json` into Railway's Variables Raw
+Editor, then replace every placeholder before deploying.
 
 ## Database
 

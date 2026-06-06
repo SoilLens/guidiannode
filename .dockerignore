@@ -1,0 +1,14 @@
+*
+
+!server/
+!server/**
+
+server/.env
+server/.env.*
+!server/.env.example
+!server/.env.production.example
+server/node_modules
+server/test
+server/coverage
+server/npm-debug.log
+server/.codex-*.log
