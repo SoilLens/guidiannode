@@ -86,6 +86,41 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
 
       if (response['success'] != true) {
+        if (response['code'] == 'PHONE_NOT_REGISTERED') {
+          showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext dialogContext) {
+              return AlertDialog(
+                title: const Text('Account Not Found'),
+                content: const Text(
+                  'This phone number is not registered. Please create an account first.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => RegistrationScreen(
+                            prefillLocationEnabled: _isLocationEnabled,
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Create account'),
+                  ),
+                ],
+              );
+            },
+          );
+          return;
+        }
+
         StatusSnackbar.show(
           context,
           message:
@@ -118,11 +153,26 @@ class _LoginScreenState extends State<LoginScreen> {
             verificationId: verificationId,
             token: token,
             whatsappUrl: whatsappUrl,
+            phoneNumber: phoneNumber,
+            purpose: 'login',
             expiresAt: expiresAt,
             title: 'Verify your login',
             subtitle:
                 'Send the prepared message from WhatsApp to securely continue.',
             onRequestNew: () => ApiService.startLoginVerification(phoneNumber),
+            onAuthRuleFailure: (code) {
+              Navigator.of(context).pop();
+
+              if (code == 'PHONE_NOT_REGISTERED') {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => RegistrationScreen(
+                      prefillLocationEnabled: _isLocationEnabled,
+                    ),
+                  ),
+                );
+              }
+            },
             onVerified: (session) async {
               await SessionService.setSession(session);
 

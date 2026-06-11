@@ -53,6 +53,30 @@ class ApiService {
     return _get('/api/verification/status/$verificationId');
   }
 
+  static Future<Map<String, dynamic>> confirmWhatsappClick({
+    required String verificationId,
+    required String phoneNumber,
+  }) async {
+    final uri = Uri.parse(
+      '${AppConfig.apiBaseUrl}/api/verification/confirm-whatsapp-click',
+    );
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: _buildHeaders(),
+        body: jsonEncode({
+          'verificationId': verificationId,
+          'phone_number': phoneNumber,
+        }),
+      );
+
+      return _decodeResponse(response);
+    } catch (e) {
+      return {'success': false, 'message': _buildRequestErrorMessage(e, uri)};
+    }
+  }
+
   static Future<Map<String, dynamic>> resendOtp({
     required String phoneNumber,
     String? otpSessionId,
