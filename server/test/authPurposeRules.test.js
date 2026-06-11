@@ -410,9 +410,7 @@ test('completed registration confirmation is idempotent', async (t) => {
   };
   const { authService, cleanup } = loadAuthService({
     userService: {
-      getUserByPhoneNumber: async () => {
-        throw new Error('Completed registration must not be treated as a duplicate.');
-      },
+      getUserByPhoneNumber: async () => completedUser,
     },
     whatsappVerificationService: {
       resolveVerificationSessionStatus: async () => verifiedSession,
