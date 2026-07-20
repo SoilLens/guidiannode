@@ -382,6 +382,22 @@ class _ResponderFollowScreenState extends State<ResponderFollowScreen> {
     }
   }
 
+  Future<void> _markCompleted() async {
+    setState(() => _isUpdatingStatus = true);
+    await _syncResponderStatus('completed', showSuccess: true);
+    if (mounted) {
+      setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  Future<void> _markUnableToAssist() async {
+    setState(() => _isUpdatingStatus = true);
+    await _syncResponderStatus('unable_to_assist', showSuccess: true);
+    if (mounted) {
+      setState(() => _isUpdatingStatus = false);
+    }
+  }
+
   Future<void> _retryGuidance() async {
     if (_responderPosition == null) {
       await _retryLocation();
@@ -745,8 +761,10 @@ class _ResponderFollowScreenState extends State<ResponderFollowScreen> {
                 const SizedBox(width: AppSpacing.sm),
                 StatusBadge(
                   label: _formatStatusLabel(_responderStatus),
-                  tone: _responderStatus == 'arrived'
+                  tone: const {'arrived', 'completed'}.contains(_responderStatus)
                       ? StatusTone.success
+                      : _responderStatus == 'unable_to_assist'
+                      ? StatusTone.warning
                       : StatusTone.action,
                 ),
               ],
@@ -834,11 +852,35 @@ class _ResponderFollowScreenState extends State<ResponderFollowScreen> {
                   child: OutlineActionButton(
                     text: 'Arrived',
                     icon: Icons.flag_rounded,
-                    onPressed: _isUpdatingStatus ? null : _markArrived,
+                    onPressed: _isUpdatingStatus || _responderStatus == 'arrived'
+                        ? null
+                        : _markArrived,
                   ),
                 ),
               ],
             ),
+            if (_responderStatus == 'arrived') ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Expanded(
+                    child: PrimaryButton(
+                      text: 'Assistance completed',
+                      icon: Icons.check_circle_outline_rounded,
+                      onPressed: _isUpdatingStatus ? null : _markCompleted,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: OutlineActionButton(
+                      text: 'Unable to assist',
+                      icon: Icons.block_rounded,
+                      onPressed: _isUpdatingStatus ? null : _markUnableToAssist,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

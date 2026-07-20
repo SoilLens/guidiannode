@@ -31,8 +31,23 @@ WHATSAPP_PHONE_NUMBER_ID=replace_with_phone_number_id
 WHATSAPP_BUSINESS_ACCOUNT_ID=replace_with_waba_id
 WHATSAPP_VERIFY_TOKEN=replace_with_a_private_random_verify_token
 WHATSAPP_APP_SECRET=replace_with_meta_app_secret
-WEBHOOK_URL=https://guidiannode-production.up.railway.app/webhook
+WEBHOOK_URL=https://guidiannode-api-production.up.railway.app/webhook
 DEBUG_AUTH_MODE=false
+```
+
+Optional AI-triage and evidence-upload variables (all have safe defaults and
+are never required for the app to start or for emergency reporting to work):
+
+```env
+# Advisory AI-assisted incident classification. Unset -> rule-based
+# EN/FR/Pidgin fallback only; classification_source is reported as "rules".
+ANTHROPIC_API_KEY=
+AI_CLASSIFICATION_MODEL=claude-haiku-4-5-20251001
+AI_CLASSIFICATION_TIMEOUT_MS=6000
+
+# Evidence attachments (photo/video/audio) uploaded through the backend.
+SUPABASE_MEDIA_BUCKET=alert-media
+MEDIA_MAX_FILE_SIZE_MB=20
 ```
 
 `DATABASE_URL` and `SESSION_SECRET` are supported in the environment templates. This application currently accesses the database through Supabase; `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are therefore required. `SESSION_SECRET` can be used instead of `JWT_SECRET`. `WHATSAPP_ACCESS_TOKEN` is optional for this inbound-only flow.
@@ -40,15 +55,15 @@ DEBUG_AUTH_MODE=false
 Health checks:
 
 ```text
-GET https://guidiannode-production.up.railway.app/health
-GET https://guidiannode-production.up.railway.app/ready
+GET https://guidiannode-api-production.up.railway.app/health
+GET https://guidiannode-api-production.up.railway.app/ready
 ```
 
 Public Meta app publishing pages:
 
 ```text
-https://guidiannode-production.up.railway.app/privacy-policy
-https://guidiannode-production.up.railway.app/data-deletion
+https://guidiannode-api-production.up.railway.app/privacy-policy
+https://guidiannode-api-production.up.railway.app/data-deletion
 ```
 
 Docker deployment definitions are available at `Dockerfile` for repository-root
@@ -91,16 +106,44 @@ server/sql/add_enum_value.sql
 server/sql/add_whatsapp_verification_columns.sql
 server/sql/add_whatsapp_verification_index.sql
 server/sql/reload_schema_cache.sql
+server/sql/add_role_and_verification_columns.sql
+server/sql/add_alert_intelligence_fields.sql
+server/sql/extend_response_state_machine.sql
+server/sql/create_alert_confirmations.sql
+server/sql/create_moderation_actions.sql
+server/sql/create_alert_media.sql
+server/sql/enable_row_level_security.sql
+server/sql/add_password_authentication.sql
 ```
 
+`add_password_authentication.sql` adds nullable `email`/`password_hash`
+columns to `users`, enabling the alternate password-based sign-in described
+below alongside the existing WhatsApp flow.
+
 The migrations preserve old OTP columns and add nullable WhatsApp fields plus `users.phone_verified`.
+
+The GuardianNode AI additions extend `users` (role/verification workflow) and
+`alerts` (AI-assisted category/urgency, verification/trust state, moderation
+fields) with nullable/defaulted columns, add three new tables
+(`alert_confirmations`, `moderation_actions`, `alert_media`), and enable Row
+Level Security across every table -- including tightening `users` and
+`emergency_contacts` so the public anon key can no longer read them directly.
+Run `enable_row_level_security.sql` last and smoke-test the in-app
+notification banner and responder live-tracking map afterward; see the
+comment at the top of that file for the architecture tradeoff it documents.
+
+For evidence uploads (photo/video/audio on a report), create a Supabase
+Storage bucket named `alert-media` (or set `SUPABASE_MEDIA_BUCKET` to a
+different name) before testing that flow. The bucket can stay private --
+the backend generates short-lived signed URLs using the service-role key
+and the Flutter client never talks to Storage directly.
 
 ## Meta Webhook
 
 Configure the WhatsApp product webhook callback as:
 
 ```text
-https://guidiannode-production.up.railway.app/webhook
+https://guidiannode-api-production.up.railway.app/webhook
 ```
 
 Use the exact production value of `WHATSAPP_VERIFY_TOKEN`. Subscribe to the `messages` field. Production POST requests require a valid `X-Hub-Signature-256` generated with `WHATSAPP_APP_SECRET`.
@@ -121,6 +164,45 @@ flutter build web --release --dart-define-from-file=config/flutter.production.js
 Deploy `build/web` to Firebase Hosting, Netlify, or Vercel with SPA rewrites to `index.html`. `firebase.json` contains a Firebase Hosting configuration.
 
 Flutter compile-time values use `API_BASE_URL` and `WHATSAPP_TARGET_NUMBER`. The equivalent `VITE_API_BASE_URL` and `VITE_WHATSAPP_TARGET_NUMBER` aliases are also accepted for deployment compatibility.
+
+### Vercel
+
+The repository root `vercel.json` builds Flutter web directly on Vercel
+(no Docker, no Flutter preinstalled) by cloning the stable Flutter SDK during
+the build step, then running `flutter build web --release` with
+`--dart-define` flags sourced from Vercel Project Environment Variables. It
+also rewrites every path to `/index.html` so client-side navigation survives
+a browser refresh.
+
+Set these Environment Variables in the Vercel project (Production and
+Preview) before deploying:
+
+```text
+API_BASE_URL=https://guidiannode-api-production.up.railway.app
+WHATSAPP_TARGET_NUMBER=237657262038
+GOOGLE_MAPS_API_KEY=your_public_platform_restricted_maps_key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_publishable_or_anon_key
+```
+
+Only public, platform-restricted values belong here -- `GOOGLE_MAPS_API_KEY`
+must be restricted to the Vercel domain, and `SUPABASE_ANON_KEY` is the
+publishable key, never the service-role key. The Node backend's
+`SUPABASE_SERVICE_ROLE_KEY` must never be set on the Vercel project; the
+compiled Flutter web bundle only ever contains the values passed here as
+`--dart-define`, which are visible in the built JavaScript by design (the
+same way any client-side app exposes its public config), so nothing secret
+should ever be added to this list.
+
+Deploy with the Vercel CLI or by connecting the GitHub repository:
+
+```bash
+vercel link
+vercel deploy --prod
+```
+
+After the first deploy, open the preview URL and smoke-test login, SOS,
+the free-text report flow, and the live map before promoting to production.
 
 ## Android
 

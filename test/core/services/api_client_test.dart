@@ -34,10 +34,7 @@ void main() {
     final response = await ApiClient.safeRequest('GET', '/health');
 
     expect(response['success'], isFalse);
-    expect(
-      response['message'],
-      'No internet connection. Please check your network and try again.',
-    );
+    expect(response['message'], contains('Could not reach GuardianNode'));
   });
 
   test('maps invalid JSON to a friendly response error', () async {

@@ -20,6 +20,7 @@ import '../widgets/dashboard_map_tab.dart';
 import '../widgets/dashboard_sheets.dart';
 import '../../../core/widgets/guardian_components.dart';
 import 'active_sos_map_screen.dart';
+import 'report_incident_screen.dart';
 import 'responder_follow_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -280,6 +281,52 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
     ).push(MaterialPageRoute<void>(builder: (_) => const ActiveSosMapScreen()));
   }
 
+  Future<void> _handleConfirmAlert(
+    EmergencyAlert alert,
+    String confirmationType,
+  ) async {
+    try {
+      await EmergencyApiService.confirmAlert(
+        alertId: alert.id,
+        confirmationType: confirmationType,
+      );
+      await _refreshNearbyAlerts(silent: true);
+
+      if (!mounted) {
+        return;
+      }
+
+      StatusSnackbar.show(
+        context,
+        message: confirmationType == 'community_confirm'
+            ? 'Thanks for confirming this report.'
+            : 'Thanks -- this has been flagged for review.',
+        tone: confirmationType == 'community_confirm'
+            ? StatusTone.success
+            : StatusTone.warning,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      StatusSnackbar.show(
+        context,
+        message: ApiClient.friendlyMessage(
+          error,
+          fallback: 'Could not record your response. Please try again.',
+        ),
+        tone: StatusTone.error,
+      );
+    }
+  }
+
+  void _openReportIncidentScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const ReportIncidentScreen()),
+    );
+  }
+
   void _openFollowScreen(EmergencyAlert alert) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -323,8 +370,12 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             onOpenProfile: _openProfileScreen,
             onOpenAlert: _openFollowScreen,
             onOpenActiveSos: _openActiveSosScreen,
-            onOpenCategorySheet: () =>
-                DashboardSheets.showEmergencyCategories(context, _triggerSos),
+            onOpenCategorySheet: () => DashboardSheets.showEmergencyCategories(
+              context,
+              _triggerSos,
+              onDescribeInDetail: _openReportIncidentScreen,
+            ),
+            onOpenReportIncident: _openReportIncidentScreen,
           ),
           DashboardMapTab(
             mapsLoaderFuture: _mapsLoaderFuture,
@@ -342,20 +393,25 @@ class _DashboardScreenState extends State<DashboardScreen> with WidgetsBindingOb
             alertsError: _alertsError,
             onRefresh: _refreshNearbyAlerts,
             onOpenAlert: _openFollowScreen,
+            onConfirmAlert: _handleConfirmAlert,
           ),
           DashboardCommunityTab(
             nearbyAlerts: _nearbyAlerts,
             onOpenAlert: _openFollowScreen,
             onOpenProfile: _openProfileScreen,
             onOpenMap: () => setState(() => _currentIndex = 1),
+            onConfirmAlert: _handleConfirmAlert,
           ),
         ],
       ),
       bottomNavigationBar: AppBottomNav(
         selectedIndex: _currentIndex,
         onChanged: _handleBottomNavigation,
-        onSos: () =>
-            DashboardSheets.showEmergencyCategories(context, _triggerSos),
+        onSos: () => DashboardSheets.showEmergencyCategories(
+          context,
+          _triggerSos,
+          onDescribeInDetail: _openReportIncidentScreen,
+        ),
       ),
     );
   }

@@ -244,6 +244,17 @@ class EmergencyCoordinator extends ChangeNotifier {
   Future<EmergencyAlert> triggerSos({
     required String emergencyType,
     String description = '',
+    String? suggestedCategory,
+    String? confirmedCategory,
+    String? urgencyLevel,
+    String? classificationSource,
+    double? classificationConfidence,
+    String? detectedLanguage,
+    String? aiExplanation,
+    String? recommendedAction,
+    int? peopleAffected,
+    List<String>? assistanceNeeded,
+    bool immediateDanger = false,
   }) async {
     _isTriggeringSos = true;
     notifyListeners();
@@ -267,6 +278,17 @@ class EmergencyCoordinator extends ChangeNotifier {
         emergencyType: emergencyType,
         snapshot: snapshot,
         description: description,
+        suggestedCategory: suggestedCategory,
+        confirmedCategory: confirmedCategory,
+        urgencyLevel: urgencyLevel,
+        classificationSource: classificationSource,
+        classificationConfidence: classificationConfidence,
+        detectedLanguage: detectedLanguage,
+        aiExplanation: aiExplanation,
+        recommendedAction: recommendedAction,
+        peopleAffected: peopleAffected,
+        assistanceNeeded: assistanceNeeded,
+        immediateDanger: immediateDanger,
       );
       _activeAlert = alert;
       _locationSharingEnabled = true;
