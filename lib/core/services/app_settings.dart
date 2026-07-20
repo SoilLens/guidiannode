@@ -11,7 +11,7 @@ class AppSettings extends ChangeNotifier {
 
   static final AppSettings instance = AppSettings._();
 
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
   AppLanguage _language = AppLanguage.english;
   AppTextSize _textSize = AppTextSize.medium;
   bool _showSafetyTips = true;
@@ -54,7 +54,7 @@ class AppSettings extends ChangeNotifier {
   Future<void> initialize() async {
     _themeMode = ThemeMode.values.firstWhere(
       (value) => value.name == AppPreferences.themeMode,
-      orElse: () => ThemeMode.system,
+      orElse: () => ThemeMode.light,
     );
     _language = AppLanguage.values.firstWhere(
       (value) => value.name == AppPreferences.language,
