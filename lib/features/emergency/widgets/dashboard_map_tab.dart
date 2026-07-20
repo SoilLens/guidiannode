@@ -8,11 +8,72 @@ import '../../../core/theme/spacing.dart';
 import '../../../core/widgets/buttons.dart';
 import '../../../core/widgets/cards.dart';
 import '../../../core/widgets/guardian_components.dart';
+import '../../../core/widgets/incident_taxonomy_ui.dart';
 import '../../../core/widgets/placeholders.dart';
 import '../../../core/widgets/status_widgets.dart';
+import '../../../core/widgets/trust_badges.dart';
 import '../models/emergency_models.dart';
 import '../utils/formatters.dart';
 import 'guardian_map_view.dart';
+
+enum MapAlertFilter {
+  all,
+  critical,
+  nearby,
+  verified,
+  medical,
+  security,
+  fire,
+  humanitarian,
+  resolved,
+}
+
+extension MapAlertFilterDetails on MapAlertFilter {
+  String get label => switch (this) {
+    MapAlertFilter.all => 'All',
+    MapAlertFilter.critical => 'Critical',
+    MapAlertFilter.nearby => 'Nearby',
+    MapAlertFilter.verified => 'Verified',
+    MapAlertFilter.medical => 'Medical',
+    MapAlertFilter.security => 'Security',
+    MapAlertFilter.fire => 'Fire',
+    MapAlertFilter.humanitarian => 'Humanitarian',
+    MapAlertFilter.resolved => 'Resolved',
+  };
+
+  bool matches(EmergencyAlert alert) {
+    switch (this) {
+      case MapAlertFilter.all:
+        return true;
+      case MapAlertFilter.critical:
+        return alert.urgencyLevel == 'critical';
+      case MapAlertFilter.nearby:
+        return (alert.distanceMeters ?? double.infinity) <= 1000;
+      case MapAlertFilter.verified:
+        return VerificationUi.isElevated(alert.verificationStatus);
+      case MapAlertFilter.medical:
+        return alert.displayCategory == 'medical_emergency' ||
+            alert.displayCategory == 'public_health_concern';
+      case MapAlertFilter.security:
+        return alert.displayCategory == 'security_threat' ||
+            alert.displayCategory == 'gender_based_violence';
+      case MapAlertFilter.fire:
+        return alert.displayCategory == 'fire' ||
+            alert.displayCategory == 'natural_disaster';
+      case MapAlertFilter.humanitarian:
+        return const {
+          'food_water_request',
+          'shelter_request',
+          'missing_person',
+          'flooding_landslide',
+          'infrastructure_hazard',
+        }.contains(alert.displayCategory);
+      case MapAlertFilter.resolved:
+        return alert.status.toLowerCase().contains('resolved') ||
+            alert.verificationStatus == 'resolved';
+    }
+  }
+}
 
 enum GuardianUserMapStyle { hybrid3d, normal, terrain, satellite }
 
@@ -147,12 +208,17 @@ class DashboardMapTab extends StatefulWidget {
 class _DashboardMapTabState extends State<DashboardMapTab> {
   GoogleMapController? _mapController;
   late GuardianUserMapStyle _mapStyle;
+  MapAlertFilter _selectedFilter = MapAlertFilter.all;
 
   @override
   void initState() {
     super.initState();
     _mapStyle = _loadSavedMapStyle();
   }
+
+  List<EmergencyAlert> get _filteredAlerts => widget.nearbyAlerts
+      .where((alert) => _selectedFilter.matches(alert))
+      .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -170,10 +236,11 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
       );
     }
 
-    final markers = _buildMarkers(currentPosition);
+    final filteredAlerts = _filteredAlerts;
+    final markers = _buildMarkers(currentPosition, filteredAlerts);
     final focusPoints = <LatLng>[
       currentPosition.latLng,
-      ...widget.nearbyAlerts.map((alert) => alert.latLng),
+      ...filteredAlerts.map((alert) => alert.latLng),
     ];
 
     return Scaffold(
@@ -268,12 +335,32 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
                             _MapInfoChip(
                               icon: Icons.warning_amber_rounded,
                               label:
-                                  '${widget.nearbyAlerts.length} nearby alert${widget.nearbyAlerts.length == 1 ? '' : 's'}',
-                              tone: widget.nearbyAlerts.isEmpty
+                                  '${filteredAlerts.length} nearby alert${filteredAlerts.length == 1 ? '' : 's'}',
+                              tone: filteredAlerts.isEmpty
                                   ? StatusTone.success
                                   : StatusTone.action,
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      SizedBox(
+                        height: 34,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: MapAlertFilter.values.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(width: AppSpacing.xs),
+                          itemBuilder: (context, index) {
+                            final filter = MapAlertFilter.values[index];
+                            final selected = filter == _selectedFilter;
+                            return ChoiceChip(
+                              label: Text(filter.label),
+                              selected: selected,
+                              onSelected: (_) =>
+                                  setState(() => _selectedFilter = filter),
+                            );
+                          },
                         ),
                       ),
                       const Spacer(),
@@ -288,7 +375,7 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
                       const SizedBox(height: AppSpacing.sm),
                       _MapSummaryPanel(
                         position: currentPosition,
-                        nearbyAlerts: widget.nearbyAlerts,
+                        nearbyAlerts: filteredAlerts,
                         isLoadingAlerts: widget.isLoadingAlerts,
                         onRefreshAlerts: widget.onRefreshAlerts,
                         onOpenFollow: widget.onOpenFollow,
@@ -304,7 +391,10 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
     );
   }
 
-  Set<Marker> _buildMarkers(PositionSnapshot currentPosition) {
+  Set<Marker> _buildMarkers(
+    PositionSnapshot currentPosition,
+    List<EmergencyAlert> alerts,
+  ) {
     return <Marker>{
       Marker(
         markerId: const MarkerId('current-user'),
@@ -313,14 +403,14 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
         zIndexInt: 5,
         infoWindow: const InfoWindow(title: 'You are here'),
       ),
-      ...widget.nearbyAlerts.map(
+      ...alerts.map(
         (alert) => Marker(
           markerId: MarkerId('alert-${alert.id}'),
           position: alert.latLng,
           icon: BitmapDescriptor.defaultMarkerWithHue(_alertHue(alert)),
           zIndexInt: _alertZIndex(alert),
           infoWindow: InfoWindow(
-            title: formatEmergencyType(alert.emergencyType),
+            title: IncidentCategoryUi.label(alert.displayCategory),
             snippet: _alertSnippet(alert),
           ),
           onTap: () => _showAlertSheet(alert),
@@ -390,7 +480,7 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
                 children: [
                   Expanded(
                     child: Text(
-                      formatEmergencyType(alert.emergencyType),
+                      IncidentCategoryUi.label(alert.displayCategory),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -400,6 +490,16 @@ class _DashboardMapTabState extends State<DashboardMapTab> {
                     label: _formatStatus(alert.status).toUpperCase(),
                     tone: _statusTone(alert),
                   ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (alert.urgencyLevel != null)
+                    UrgencyBadge(urgency: alert.urgencyLevel!),
+                  VerificationBadge(status: alert.verificationStatus),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
@@ -764,45 +864,60 @@ class _AlertDetailRow extends StatelessWidget {
   }
 }
 
+// Marker colour communicates category first, then defers to a distinct
+// "trusted" colour once an alert is verified/resolved, and a muted colour
+// once it's been disputed/marked false -- so an unverified report never
+// reads as visually identical to a confirmed one.
 double _alertHue(EmergencyAlert alert) {
   final status = alert.status.toLowerCase();
-  final type = alert.emergencyType.toLowerCase();
 
-  if (status.contains('resolved') || status.contains('safe')) {
+  if (status.contains('resolved') || alert.verificationStatus == 'resolved') {
     return BitmapDescriptor.hueGreen;
   }
-  if (status.contains('warning') || status.contains('caution')) {
-    return BitmapDescriptor.hueYellow;
+  if (alert.isDisputedOrFalse) {
+    return BitmapDescriptor.hueRose;
   }
-  if (type.contains('security') ||
-      type.contains('violence') ||
-      type.contains('theft')) {
-    return BitmapDescriptor.hueAzure;
+  if (alert.isVerifiedByAuthority) {
+    return BitmapDescriptor.hueGreen;
   }
-  return BitmapDescriptor.hueOrange;
+
+  return switch (alert.displayCategory) {
+    'security_threat' || 'gender_based_violence' => BitmapDescriptor.hueRed,
+    'medical_emergency' || 'public_health_concern' => BitmapDescriptor.hueAzure,
+    'fire' || 'natural_disaster' => BitmapDescriptor.hueOrange,
+    'road_accident' || 'infrastructure_hazard' => BitmapDescriptor.hueYellow,
+    'missing_person' => BitmapDescriptor.hueViolet,
+    'flooding_landslide' => BitmapDescriptor.hueBlue,
+    'food_water_request' || 'shelter_request' => BitmapDescriptor.hueCyan,
+    _ => BitmapDescriptor.hueOrange,
+  };
 }
 
+// Urgency controls stacking order so the most critical pins are never
+// hidden underneath lower-priority ones on a crowded map.
 int _alertZIndex(EmergencyAlert alert) {
-  final status = alert.status.toLowerCase();
-
-  if (status.contains('resolved') || status.contains('safe')) {
+  if (alert.status.toLowerCase().contains('resolved')) {
     return 1;
   }
-  if (status.contains('warning') || status.contains('caution')) {
-    return 2;
-  }
-  return 4;
+
+  return switch (alert.urgencyLevel) {
+    'critical' => 6,
+    'high' => 5,
+    'medium' => 4,
+    'low' => 3,
+    _ => 4,
+  };
 }
 
 String _alertSnippet(EmergencyAlert alert) {
   final distance = formatDistance(alert.distanceMeters);
-  final status = _formatStatus(alert.status);
+  final verification = VerificationUi.label(alert.verificationStatus);
 
   if (distance == '--') {
-    return status;
+    return verification;
   }
 
-  return '$status - $distance away';
+  return '$verification - $distance away';
 }
 
 String _formatStatus(String status) {

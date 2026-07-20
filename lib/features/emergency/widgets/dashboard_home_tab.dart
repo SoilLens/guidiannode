@@ -31,6 +31,7 @@ class DashboardHomeTab extends StatelessWidget {
     required this.onOpenAlert,
     required this.onOpenActiveSos,
     required this.onOpenCategorySheet,
+    required this.onOpenReportIncident,
   });
 
   final EmergencyCoordinator coordinator;
@@ -46,6 +47,7 @@ class DashboardHomeTab extends StatelessWidget {
   final void Function(EmergencyAlert alert) onOpenAlert;
   final VoidCallback onOpenActiveSos;
   final VoidCallback onOpenCategorySheet;
+  final VoidCallback onOpenReportIncident;
 
   @override
   Widget build(BuildContext context) {
@@ -182,10 +184,10 @@ class DashboardHomeTab extends StatelessWidget {
                     const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: QuickActionTile(
-                        label: 'Report Incident',
+                        label: context.tr('report_incident'),
                         icon: Icons.warning_amber_rounded,
                         color: AppColors.communityYellow,
-                        onTap: onOpenCategorySheet,
+                        onTap: onOpenReportIncident,
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xs),
@@ -256,6 +258,8 @@ class DashboardHomeTab extends StatelessWidget {
                             time: formatRelativeTime(
                               alert.updatedAt ?? alert.createdAt,
                             ),
+                            urgency: alert.urgencyLevel,
+                            verificationStatus: alert.verificationStatus,
                             onTap: () => onOpenAlert(alert),
                             onAction: () => onOpenAlert(alert),
                           ),

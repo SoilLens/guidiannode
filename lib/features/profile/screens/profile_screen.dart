@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/localization/app_strings.dart';
 import '../../../core/services/session_service.dart';
 import '../../../core/services/api_client.dart';
 import '../../../core/theme/colors.dart';
@@ -14,6 +15,8 @@ import '../../../core/widgets/placeholders.dart';
 import '../../../core/widgets/status_widgets.dart';
 import '../models/profile_models.dart';
 import '../services/profile_api_service.dart';
+import '../services/role_api_service.dart';
+import '../widgets/role_request_sheet.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -158,6 +161,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _becomeCommunityHelper() async {
+    try {
+      final updated = await RoleApiService.requestRole(
+        requestedRole: 'community_helper',
+      );
+      SessionService.updateCurrentUserFields({
+        'role': updated.role,
+        'verification_status': updated.verificationStatus,
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _profile = updated);
+      StatusSnackbar.show(
+        context,
+        message: 'You are now a Community Helper.',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      StatusSnackbar.show(
+        context,
+        message: ApiClient.friendlyMessage(error),
+        tone: StatusTone.error,
+      );
+    }
+  }
+
+  void _openRoleRequestSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: false,
+      builder: (context) => RoleRequestSheet(
+        onSubmitted: () => _loadProfile(showSpinner: false),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading && _profile == null) {
@@ -211,6 +257,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 message: 'Showing saved profile data. $_loadError',
               ),
             ],
+            const SizedBox(height: AppSpacing.xl),
+            const SectionHeader(
+              title: 'Community role',
+              subtitle:
+                  'Volunteer as a helper, or request a verified responder role.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _CommunityRoleCard(
+              profile: profile,
+              onBecomeHelper: _becomeCommunityHelper,
+              onRequestRole: _openRoleRequestSheet,
+            ),
             const SizedBox(height: AppSpacing.xl),
             const SectionHeader(
               title: 'Profile details',
@@ -368,6 +426,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ]
           : null,
+    );
+  }
+}
+
+const Map<String, String> _roleLabels = {
+  'citizen': 'Citizen',
+  'community_helper': 'Community Helper',
+  'verified_responder': 'Verified Responder',
+  'medical_responder': 'Medical Responder',
+  'security_responder': 'Security Responder',
+  'humanitarian_responder': 'Humanitarian Responder',
+  'moderator': 'Moderator',
+  'administrator': 'Administrator',
+};
+
+class _CommunityRoleCard extends StatelessWidget {
+  const _CommunityRoleCard({
+    required this.profile,
+    required this.onBecomeHelper,
+    required this.onRequestRole,
+  });
+
+  final UserProfile profile;
+  final VoidCallback onBecomeHelper;
+  final VoidCallback onRequestRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final roleLabel = _roleLabels[profile.role] ?? 'Citizen';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: AppRadii.card,
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Current role: $roleLabel',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (profile.hasPendingRoleRequest)
+                const StatusBadge(label: 'PENDING', tone: StatusTone.warning)
+              else if (profile.hasApprovedSensitiveRole)
+                const StatusBadge(label: 'APPROVED', tone: StatusTone.success)
+              else if (profile.verificationStatus == 'rejected')
+                const StatusBadge(label: 'REJECTED', tone: StatusTone.error)
+              else if (profile.verificationStatus == 'suspended')
+                const StatusBadge(label: 'SUSPENDED', tone: StatusTone.error),
+            ],
+          ),
+          if (profile.hasPendingRoleRequest) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Your request for ${_roleLabels[profile.requestedRole] ?? profile.requestedRole} is awaiting administrator review.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          if (profile.role == 'citizen')
+            OutlineActionButton(
+              text: context.tr('become_helper'),
+              icon: Icons.volunteer_activism_outlined,
+              onPressed: onBecomeHelper,
+            ),
+          if (!profile.hasPendingRoleRequest) ...[
+            if (profile.role == 'citizen') const SizedBox(height: AppSpacing.sm),
+            OutlineActionButton(
+              text: context.tr('request_responder_role'),
+              icon: Icons.badge_outlined,
+              onPressed: onRequestRole,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

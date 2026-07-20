@@ -80,6 +80,15 @@ const Map<AppLanguage, Map<String, String>> _translations = {
     'delete_subtitle': 'Open the secure deletion request page and verify ownership.',
     'allow_location': 'Allow location',
     'enable': 'Enable',
+    'report_incident': 'Report Incident',
+    'describe_emergency': "What's happening?",
+    'describe_emergency_hint':
+        'Type it however feels natural -- English, French, or Pidgin all work.',
+    'immediate_danger_question':
+        'Is anyone in immediate danger right now?',
+    'send_report': 'Send report',
+    'become_helper': 'Become a Community Helper',
+    'request_responder_role': 'Request a verified responder role',
   },
   AppLanguage.french: {
     'settings': 'Parametres',
@@ -135,6 +144,15 @@ const Map<AppLanguage, Map<String, String>> _translations = {
     'delete_subtitle': 'Ouvrir la page de suppression securisee.',
     'allow_location': 'Autoriser',
     'enable': 'Activer',
+    'report_incident': 'Signaler un incident',
+    'describe_emergency': "Que se passe-t-il ?",
+    'describe_emergency_hint':
+        'Ecrivez comme cela vous vient -- anglais, francais ou pidgin conviennent tous.',
+    'immediate_danger_question':
+        'Quelqu un est-il en danger immediat maintenant ?',
+    'send_report': 'Envoyer le signalement',
+    'become_helper': 'Devenir aidant communautaire',
+    'request_responder_role': 'Demander un role de repondant verifie',
   },
   AppLanguage.pidgin: {
     'settings': 'Settings',
@@ -190,5 +208,13 @@ const Map<AppLanguage, Map<String, String>> _translations = {
     'delete_subtitle': 'Open page make you delete details.',
     'allow_location': 'Allow location',
     'enable': 'Enable',
+    'report_incident': 'Report Wetin Happen',
+    'describe_emergency': "Wetin dey happen?",
+    'describe_emergency_hint':
+        'Type am as e dey come -- English, French, or Pidgin all dey fine.',
+    'immediate_danger_question': 'Anybody dey for immediate danger now now?',
+    'send_report': 'Send the report',
+    'become_helper': 'Become Community Helper',
+    'request_responder_role': 'Ask for verified responder role',
   },
 };

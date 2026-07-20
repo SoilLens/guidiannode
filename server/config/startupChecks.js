@@ -173,6 +173,9 @@ const buildReadinessSnapshot = () => ({
     whatsapp_access_token: hasUsableEnv("WHATSAPP_ACCESS_TOKEN"),
     whatsapp_app_secret: hasUsableEnv("WHATSAPP_APP_SECRET"),
     webhook_url: hasUsableEnv("WEBHOOK_URL"),
+    // Advisory-only: the rule-based classifier keeps emergency reporting
+    // working even when this is false, so it is never a startup blocker.
+    ai_classification_configured: hasUsableEnv("ANTHROPIC_API_KEY"),
   },
 });
 

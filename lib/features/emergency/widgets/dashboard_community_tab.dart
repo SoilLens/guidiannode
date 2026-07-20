@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/widgets/cards.dart';
 import '../../../core/widgets/guardian_components.dart';
@@ -15,12 +16,15 @@ class DashboardCommunityTab extends StatefulWidget {
     required this.onOpenAlert,
     required this.onOpenProfile,
     required this.onOpenMap,
+    required this.onConfirmAlert,
   });
 
   final List<EmergencyAlert> nearbyAlerts;
   final void Function(EmergencyAlert alert) onOpenAlert;
   final VoidCallback onOpenProfile;
   final VoidCallback onOpenMap;
+  final Future<void> Function(EmergencyAlert alert, String confirmationType)
+  onConfirmAlert;
 
   @override
   State<DashboardCommunityTab> createState() => _DashboardCommunityTabState();
@@ -77,8 +81,13 @@ class _DashboardCommunityTabState extends State<DashboardCommunityTab> {
                 icon: Icons.history_rounded,
               )
             else
-              ...alerts.map(
-                (alert) => Padding(
+              ...alerts.map((alert) {
+                final currentUserId = SessionService.currentUser?['id']
+                    ?.toString();
+                final isOwnAlert = currentUserId != null &&
+                    currentUserId == alert.userId;
+
+                return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: AlertCard(
                     title: formatEmergencyType(alert.emergencyType),
@@ -89,10 +98,18 @@ class _DashboardCommunityTabState extends State<DashboardCommunityTab> {
                     ),
                     statusLabel: alert.status.toUpperCase(),
                     tone: _toneForStatus(alert.status),
+                    urgency: alert.urgencyLevel,
+                    verificationStatus: alert.verificationStatus,
+                    communityConfirmations: alert.communityConfirmations,
+                    myConfirmationType: alert.myConfirmationType,
+                    isOwnAlert: isOwnAlert,
+                    onConfirm: () =>
+                        widget.onConfirmAlert(alert, 'community_confirm'),
+                    onDispute: () => widget.onConfirmAlert(alert, 'dispute'),
                     onTap: () => widget.onOpenAlert(alert),
                   ),
-                ),
-              ),
+                );
+              }),
           ],
         ),
       ),

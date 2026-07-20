@@ -13,18 +13,19 @@ class DashboardSheets {
   static void showEmergencyCategories(
     BuildContext context,
     Future<void> Function(String emergencyType, {String? description})
-    onTrigger,
-  ) {
+    onTrigger, {
+    VoidCallback? onDescribeInDetail,
+  }) {
     const categories = [
       _EmergencyCategory(
-        type: 'security',
-        title: 'Security',
-        subtitle: 'Threat or crime',
+        type: 'security_threat',
+        title: 'Gunshots / Violence',
+        subtitle: 'Security threat',
         icon: Icons.shield_rounded,
-        color: AppColors.trustBlue,
+        color: AppColors.error,
       ),
       _EmergencyCategory(
-        type: 'medical',
+        type: 'medical_emergency',
         title: 'Medical',
         subtitle: 'Health emergency',
         icon: Icons.local_hospital_rounded,
@@ -38,11 +39,53 @@ class DashboardSheets {
         color: AppColors.engagementOrange,
       ),
       _EmergencyCategory(
-        type: 'accident',
-        title: 'Accident',
+        type: 'road_accident',
+        title: 'Road Accident',
         subtitle: 'Traffic accident',
         icon: Icons.car_crash_rounded,
         color: AppColors.communityYellow,
+      ),
+      _EmergencyCategory(
+        type: 'missing_person',
+        title: 'Missing Person',
+        subtitle: 'Someone is missing',
+        icon: Icons.person_search_rounded,
+        color: AppColors.trustBlue,
+      ),
+      _EmergencyCategory(
+        type: 'flooding_landslide',
+        title: 'Flooding',
+        subtitle: 'Flood or landslide',
+        icon: Icons.water_rounded,
+        color: AppColors.trustBlue,
+      ),
+      _EmergencyCategory(
+        type: 'food_water_request',
+        title: 'Food / Water',
+        subtitle: 'Basic needs request',
+        icon: Icons.restaurant_rounded,
+        color: AppColors.safetyGreen,
+      ),
+      _EmergencyCategory(
+        type: 'shelter_request',
+        title: 'Shelter',
+        subtitle: 'Need a safe place',
+        icon: Icons.home_rounded,
+        color: AppColors.safetyGreen,
+      ),
+      _EmergencyCategory(
+        type: 'infrastructure_hazard',
+        title: 'Dangerous Road/Infra.',
+        subtitle: 'Hazard to report',
+        icon: Icons.warning_amber_rounded,
+        color: AppColors.communityYellow,
+      ),
+      _EmergencyCategory(
+        type: 'other',
+        title: 'Other',
+        subtitle: 'Something else',
+        icon: Icons.more_horiz_rounded,
+        color: AppColors.trustBlue,
       ),
     ];
 
@@ -58,21 +101,24 @@ class DashboardSheets {
             subtitle: 'Select the type of help you need.',
             child: Column(
               children: [
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: AppSpacing.md,
-                  crossAxisSpacing: AppSpacing.md,
-                  childAspectRatio: 0.94,
-                  children: [
-                    for (final category in categories)
-                      _SelectableCategoryCard(
-                        category: category,
-                        selected: selected.type == category.type,
-                        onTap: () => setSheetState(() => selected = category),
-                      ),
-                  ],
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 380),
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    mainAxisSpacing: AppSpacing.md,
+                    crossAxisSpacing: AppSpacing.md,
+                    childAspectRatio: 0.94,
+                    children: [
+                      for (final category in categories)
+                        _SelectableCategoryCard(
+                          category: category,
+                          selected: selected.type == category.type,
+                          onTap: () =>
+                              setSheetState(() => selected = category),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 PrimaryButton(
@@ -82,6 +128,17 @@ class DashboardSheets {
                     onTrigger(selected.type);
                   },
                 ),
+                if (onDescribeInDetail != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  OutlineActionButton(
+                    text: 'Describe what\'s happening instead',
+                    icon: Icons.edit_note_rounded,
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      onDescribeInDetail();
+                    },
+                  ),
+                ],
               ],
             ),
           ),

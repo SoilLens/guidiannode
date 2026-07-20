@@ -1,4 +1,6 @@
 const { z } = require('zod');
+const { INCIDENT_CATEGORY_VALUES, URGENCY_LEVEL_VALUES, CLASSIFICATION_SOURCE_VALUES, DETECTED_LANGUAGE_VALUES, ASSISTANCE_TYPE_VALUES } = require('../constants/incidentTaxonomy');
+const { RESPONSE_STATUS_VALUES } = require('../constants/responseStatus');
 
 const rawCoordinateSchema = z.union([z.number(), z.string().trim().min(1)]);
 const rawOptionalNumericSchema = z
@@ -27,13 +29,27 @@ const optionalNumericSchema = rawOptionalNumericSchema.transform((value) => {
 
 const createSosAlertSchema = z.object({
   emergency_type: z.string().trim().min(2).max(80),
-  description: z.string().trim().max(500).optional().default(''),
+  description: z.string().trim().max(1000).optional().default(''),
   latitude: latitudeSchema,
   longitude: longitudeSchema,
   accuracy: optionalNumericSchema.optional(),
   heading: optionalNumericSchema.optional(),
   speed: optionalNumericSchema.optional(),
   source: z.string().trim().min(2).max(50).optional().default('device'),
+  // Fields populated by the multilingual free-text report flow. All are
+  // optional so the existing quick-SOS category sheet keeps working
+  // unchanged and untouched by classification.
+  suggested_category: z.enum(INCIDENT_CATEGORY_VALUES).optional(),
+  confirmed_category: z.enum(INCIDENT_CATEGORY_VALUES).optional(),
+  urgency_level: z.enum(URGENCY_LEVEL_VALUES).optional(),
+  classification_source: z.enum(CLASSIFICATION_SOURCE_VALUES).optional(),
+  classification_confidence: z.coerce.number().min(0).max(1).optional(),
+  detected_language: z.enum(DETECTED_LANGUAGE_VALUES).optional(),
+  ai_explanation: z.string().trim().max(300).optional(),
+  recommended_action: z.string().trim().max(300).optional(),
+  people_affected: z.coerce.number().int().min(0).max(9999).optional(),
+  assistance_needed: z.array(z.enum(ASSISTANCE_TYPE_VALUES)).max(6).optional(),
+  immediate_danger: z.coerce.boolean().optional(),
 });
 
 const updateAlertLocationSchema = z.object({
@@ -85,16 +101,16 @@ const responderFollowQuerySchema = z
   });
 
 const respondToAlertSchema = z.object({
-  status: z
-    .enum(['accepted', 'on_the_way', 'arrived', 'cancelled', 'stopped'])
-    .optional()
-    .default('on_the_way'),
+  status: z.enum(RESPONSE_STATUS_VALUES).optional().default('on_the_way'),
   latitude: latitudeSchema.optional(),
   longitude: longitudeSchema.optional(),
   accuracy: optionalNumericSchema.optional(),
   heading: optionalNumericSchema.optional(),
   speed: optionalNumericSchema.optional(),
   source: z.string().trim().min(2).max(50).optional().default('device'),
+  capability: z.enum(ASSISTANCE_TYPE_VALUES).optional(),
+  eta_minutes: z.coerce.number().int().min(0).max(1440).optional(),
+  note: z.string().trim().max(300).optional(),
 });
 
 const alertIdParamSchema = z.object({

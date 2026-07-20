@@ -7,6 +7,7 @@ import '../theme/radii.dart';
 import '../theme/spacing.dart';
 import 'buttons.dart';
 import 'status_widgets.dart';
+import 'trust_badges.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -489,6 +490,13 @@ class AlertCard extends StatelessWidget {
     this.actionLabel = 'I Am Coming',
     this.onAction,
     this.tone = StatusTone.error,
+    this.urgency,
+    this.verificationStatus,
+    this.communityConfirmations,
+    this.myConfirmationType,
+    this.onConfirm,
+    this.onDispute,
+    this.isOwnAlert = false,
   });
 
   final String title;
@@ -500,6 +508,13 @@ class AlertCard extends StatelessWidget {
   final String actionLabel;
   final VoidCallback? onAction;
   final StatusTone tone;
+  final String? urgency;
+  final String? verificationStatus;
+  final int? communityConfirmations;
+  final String? myConfirmationType;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onDispute;
+  final bool isOwnAlert;
 
   @override
   Widget build(BuildContext context) {
@@ -518,8 +533,20 @@ class AlertCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              StatusBadge(label: statusLabel, tone: tone),
-              const Spacer(),
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    StatusBadge(label: statusLabel, tone: tone),
+                    if (urgency != null) UrgencyBadge(urgency: urgency!),
+                    if (verificationStatus != null)
+                      VerificationBadge(status: verificationStatus!),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
@@ -567,6 +594,16 @@ class AlertCard extends StatelessWidget {
               ),
             ],
           ),
+          if (communityConfirmations != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AlertConfirmationActions(
+              communityConfirmations: communityConfirmations!,
+              myConfirmationType: myConfirmationType,
+              onConfirm: onConfirm,
+              onDispute: onDispute,
+              isOwnAlert: isOwnAlert,
+            ),
+          ],
           if (onAction != null) ...[
             const SizedBox(height: AppSpacing.md),
             CommunityActionButton(onPressed: onAction!, label: actionLabel),
