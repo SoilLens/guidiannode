@@ -31,7 +31,7 @@ WHATSAPP_PHONE_NUMBER_ID=replace_with_phone_number_id
 WHATSAPP_BUSINESS_ACCOUNT_ID=replace_with_waba_id
 WHATSAPP_VERIFY_TOKEN=replace_with_a_private_random_verify_token
 WHATSAPP_APP_SECRET=replace_with_meta_app_secret
-WEBHOOK_URL=https://guidiannode-production.up.railway.app/webhook
+WEBHOOK_URL=https://guidiannode-api-production.up.railway.app/webhook
 DEBUG_AUTH_MODE=false
 ```
 
@@ -55,15 +55,15 @@ MEDIA_MAX_FILE_SIZE_MB=20
 Health checks:
 
 ```text
-GET https://guidiannode-production.up.railway.app/health
-GET https://guidiannode-production.up.railway.app/ready
+GET https://guidiannode-api-production.up.railway.app/health
+GET https://guidiannode-api-production.up.railway.app/ready
 ```
 
 Public Meta app publishing pages:
 
 ```text
-https://guidiannode-production.up.railway.app/privacy-policy
-https://guidiannode-production.up.railway.app/data-deletion
+https://guidiannode-api-production.up.railway.app/privacy-policy
+https://guidiannode-api-production.up.railway.app/data-deletion
 ```
 
 Docker deployment definitions are available at `Dockerfile` for repository-root
@@ -143,7 +143,7 @@ and the Flutter client never talks to Storage directly.
 Configure the WhatsApp product webhook callback as:
 
 ```text
-https://guidiannode-production.up.railway.app/webhook
+https://guidiannode-api-production.up.railway.app/webhook
 ```
 
 Use the exact production value of `WHATSAPP_VERIFY_TOKEN`. Subscribe to the `messages` field. Production POST requests require a valid `X-Hub-Signature-256` generated with `WHATSAPP_APP_SECRET`.
@@ -178,7 +178,7 @@ Set these Environment Variables in the Vercel project (Production and
 Preview) before deploying:
 
 ```text
-API_BASE_URL=https://guidiannode-production.up.railway.app
+API_BASE_URL=https://guidiannode-api-production.up.railway.app
 WHATSAPP_TARGET_NUMBER=237657262038
 GOOGLE_MAPS_API_KEY=your_public_platform_restricted_maps_key
 SUPABASE_URL=https://your-project.supabase.co

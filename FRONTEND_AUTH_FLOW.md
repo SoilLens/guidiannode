@@ -8,4 +8,4 @@
 6. Polling stops on `verified` or `expired`.
 7. A verified response is stored through the existing `SessionService`, then the user moves into the existing dashboard flow.
 
-The release API URL is supplied at compile time with `--dart-define=API_BASE_URL=https://guidiannode-production.up.railway.app`.
+The release API URL is supplied at compile time with `--dart-define=API_BASE_URL=https://guidiannode-api-production.up.railway.app`.

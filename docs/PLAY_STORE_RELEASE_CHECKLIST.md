@@ -5,7 +5,7 @@
 - Deploy the Node API to a public HTTPS host.
 - Set `NODE_ENV=production`.
 - Set `DEBUG_AUTH_MODE=false`.
-- Configure the production Meta webhook at `https://guidiannode-production.up.railway.app/webhook`.
+- Configure the production Meta webhook at `https://guidiannode-api-production.up.railway.app/webhook`.
 - Set the WhatsApp Cloud API IDs, verify token, target number, and Meta app secret.
 - Confirm signed Meta webhook POST requests are accepted and invalid signatures return HTTP 401.
 - Use a strong production `JWT_SECRET`.
@@ -18,7 +18,7 @@
 - Build the Play bundle with a production HTTPS API URL:
 
 ```powershell
-flutter build appbundle --release --dart-define=API_BASE_URL=https://guidiannode-production.up.railway.app
+flutter build appbundle --release --dart-define=API_BASE_URL=https://guidiannode-api-production.up.railway.app
 ```
 
 - Confirm the generated file exists at:
