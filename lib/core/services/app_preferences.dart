@@ -44,7 +44,7 @@ class AppPreferences {
   static Future<bool> setShowSafetyTips(bool value) =>
       _prefs.setBool(_showSafetyTipsKey, value);
 
-  static String get themeMode => _prefs.getString(_themeModeKey) ?? 'system';
+  static String get themeMode => _prefs.getString(_themeModeKey) ?? 'light';
 
   static Future<bool> setThemeMode(String value) =>
       _prefs.setString(_themeModeKey, value);
