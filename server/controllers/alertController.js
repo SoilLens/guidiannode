@@ -1,4 +1,5 @@
 const alertService = require('../services/alertService');
+const alertConfirmationService = require('../services/alertConfirmationService');
 const { sendError, sendSuccess } = require('../utils/apiResponse');
 
 const createSosAlertHandler = async (req, res) => {
@@ -14,6 +15,17 @@ const createSosAlertHandler = async (req, res) => {
       heading: payload.heading,
       speed: payload.speed,
       source: payload.source,
+      suggestedCategory: payload.suggested_category,
+      confirmedCategory: payload.confirmed_category,
+      urgencyLevel: payload.urgency_level,
+      classificationSource: payload.classification_source,
+      classificationConfidence: payload.classification_confidence,
+      detectedLanguage: payload.detected_language,
+      aiExplanation: payload.ai_explanation,
+      recommendedAction: payload.recommended_action,
+      peopleAffected: payload.people_affected,
+      assistanceNeeded: payload.assistance_needed,
+      immediateDanger: payload.immediate_danger,
     });
 
     return sendSuccess(res, {
@@ -89,6 +101,7 @@ const getResponderFollowDetailsHandler = async (req, res) => {
       responderLatitude: query.origin_lat,
       responderLongitude: query.origin_lng,
       travelMode: query.travel_mode,
+      requestingUser: req.user,
     });
 
     return sendSuccess(res, {
@@ -115,6 +128,9 @@ const respondToAlertHandler = async (req, res) => {
       heading: payload.heading,
       speed: payload.speed,
       source: payload.source,
+      capability: payload.capability,
+      etaMinutes: payload.eta_minutes,
+      note: payload.note,
     });
 
     return sendSuccess(res, {
@@ -145,6 +161,49 @@ const resolveAlertHandler = async (req, res) => {
   }
 };
 
+const confirmAlertHandler = async (req, res) => {
+  try {
+    const params = req.validated?.params ?? req.params;
+    const payload = req.validated?.body ?? req.body;
+    const result = await alertConfirmationService.confirmAlert({
+      alertId: params.alertId,
+      userId: req.user.id,
+      confirmationType: payload.confirmation_type,
+      note: payload.note,
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Confirmation recorded successfully.',
+      data: result,
+    });
+  } catch (error) {
+    return sendError(res, error, { label: 'Confirm Alert Error' });
+  }
+};
+
+const setAlertVerificationHandler = async (req, res) => {
+  try {
+    const params = req.validated?.params ?? req.params;
+    const payload = req.validated?.body ?? req.body;
+    const alert = await alertConfirmationService.setAlertVerification({
+      alertId: params.alertId,
+      actor: req.user,
+      verificationStatus: payload.verification_status,
+      moderationStatus: payload.moderation_status,
+      notes: payload.notes,
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Alert verification updated successfully.',
+      data: { alert },
+    });
+  } catch (error) {
+    return sendError(res, error, { label: 'Set Alert Verification Error' });
+  }
+};
+
 module.exports = {
   createSosAlertHandler,
   getNearbyAlertsHandler,
@@ -152,4 +211,6 @@ module.exports = {
   respondToAlertHandler,
   resolveAlertHandler,
   updateLiveAlertLocationHandler,
+  confirmAlertHandler,
+  setAlertVerificationHandler,
 };

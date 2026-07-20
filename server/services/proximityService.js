@@ -1,6 +1,32 @@
 const { supabaseAdmin } = require('../config/supabaseClient');
 const { wrapDatabaseError } = require('../utils/appError');
 const { buildBoundingBox, distanceInMeters, normalizeCoordinates } = require('../utils/geo');
+const { VISIBILITY_LEVEL, PUBLIC_COORDINATE_PRECISION } = require('../constants/alertTrust');
+
+// Nearby-alerts results never belong to the viewer (their own alerts are
+// excluded before this runs), so every row here is "someone else's report"
+// and gets the public-safe treatment: coordinates rounded to roughly
+// 100m, and no phone number ever leaves the backend through this endpoint.
+// Reports tagged `sensitive` (e.g. gender-based violence) also drop the
+// reporter's name entirely.
+const roundForPublicView = (value) =>
+  typeof value === 'number' ? Number(value.toFixed(PUBLIC_COORDINATE_PRECISION)) : value;
+
+const buildPublicVictim = (victim, visibilityLevel) => {
+  if (!victim) {
+    return null;
+  }
+
+  if (visibilityLevel === VISIBILITY_LEVEL.SENSITIVE) {
+    return null;
+  }
+
+  return {
+    id: victim.id,
+    full_name: victim.full_name,
+    quarter: victim.quarter,
+  };
+};
 
 const USERS_TABLE = 'users';
 const ALERTS_TABLE = 'alerts';
@@ -133,13 +159,13 @@ const listNearbyAlerts = async ({
 
       return {
         ...alert,
-        latitude: effectiveLatitude,
-        longitude: effectiveLongitude,
+        latitude: roundForPublicView(effectiveLatitude),
+        longitude: roundForPublicView(effectiveLongitude),
         readable_address: liveLocation?.formatted_address ?? null,
         locality: liveLocation?.locality ?? null,
         live_location_updated_at: liveLocation?.updated_at ?? null,
         distance_meters: distanceMeters,
-        victim: usersById.get(alert.user_id) ?? null,
+        victim: buildPublicVictim(usersById.get(alert.user_id), alert.visibility_level),
       };
     })
     .filter((alert) => alert.distance_meters <= radiusMeters)

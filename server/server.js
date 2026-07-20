@@ -16,6 +16,7 @@ const alertRoutes = require('./routes/alertRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const legalRoutes = require('./routes/legalRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const roleRoutes = require('./routes/roleRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 
@@ -71,6 +72,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/roles', roleRoutes);
 app.use('/api/verification', verificationRoutes);
 
 // Health check endpoint

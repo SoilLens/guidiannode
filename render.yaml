@@ -40,3 +40,13 @@ services:
         sync: false
       - key: WEBHOOK_URL
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: AI_CLASSIFICATION_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: AI_CLASSIFICATION_TIMEOUT_MS
+        value: 6000
+      - key: SUPABASE_MEDIA_BUCKET
+        value: alert-media
+      - key: MEDIA_MAX_FILE_SIZE_MB
+        value: 20

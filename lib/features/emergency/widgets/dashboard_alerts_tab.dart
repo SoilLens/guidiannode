@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/session_service.dart';
 import '../../../core/theme/spacing.dart';
 import '../../../core/widgets/cards.dart';
 import '../../../core/widgets/guardian_components.dart';
@@ -16,6 +17,7 @@ class DashboardAlertsTab extends StatefulWidget {
     required this.alertsError,
     required this.onRefresh,
     required this.onOpenAlert,
+    required this.onConfirmAlert,
   });
 
   final List<EmergencyAlert> nearbyAlerts;
@@ -23,6 +25,8 @@ class DashboardAlertsTab extends StatefulWidget {
   final String? alertsError;
   final Future<void> Function() onRefresh;
   final void Function(EmergencyAlert alert) onOpenAlert;
+  final Future<void> Function(EmergencyAlert alert, String confirmationType)
+  onConfirmAlert;
 
   @override
   State<DashboardAlertsTab> createState() => _DashboardAlertsTabState();
@@ -86,8 +90,13 @@ class _DashboardAlertsTabState extends State<DashboardAlertsTab> {
                   onAction: widget.onRefresh,
                 )
               else
-                ...visibleAlerts.map(
-                  (alert) => Padding(
+                ...visibleAlerts.map((alert) {
+                  final currentUserId = SessionService.currentUser?['id']
+                      ?.toString();
+                  final isOwnAlert = currentUserId != null &&
+                      currentUserId == alert.userId;
+
+                  return Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
                     child: AlertCard(
                       title: formatEmergencyType(alert.emergencyType),
@@ -98,11 +107,20 @@ class _DashboardAlertsTabState extends State<DashboardAlertsTab> {
                       ),
                       statusLabel: alert.status.toUpperCase(),
                       tone: _toneForStatus(alert.status),
+                      urgency: alert.urgencyLevel,
+                      verificationStatus: alert.verificationStatus,
+                      communityConfirmations: alert.communityConfirmations,
+                      myConfirmationType: alert.myConfirmationType,
+                      isOwnAlert: isOwnAlert,
+                      onConfirm: () =>
+                          widget.onConfirmAlert(alert, 'community_confirm'),
+                      onDispute: () =>
+                          widget.onConfirmAlert(alert, 'dispute'),
                       onTap: () => widget.onOpenAlert(alert),
                       onAction: () => widget.onOpenAlert(alert),
                     ),
-                  ),
-                ),
+                  );
+                }),
             ],
           ),
         ),

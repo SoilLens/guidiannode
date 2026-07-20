@@ -6,6 +6,22 @@ const mapService = require('./mapService');
 const proximityService = require('./proximityService');
 const realtimeService = require('./realtimeService');
 const userService = require('./userService');
+const alertConfirmationService = require('./alertConfirmationService');
+const { INCIDENT_CATEGORY, SENSITIVE_CATEGORIES, URGENCY_LEVEL } = require('../constants/incidentTaxonomy');
+const { VISIBILITY_LEVEL } = require('../constants/alertTrust');
+const { isModeratorOrAdmin, hasApprovedSensitiveRole } = require('../constants/roles');
+
+// The legacy quick-SOS category sheet only ever sends one of these five
+// values. The richer free-text report flow sends confirmed_category
+// directly instead, so this mapping only exists to give older/simple SOS
+// alerts a sensible category for map markers and filters.
+const LEGACY_EMERGENCY_TYPE_TO_CATEGORY = Object.freeze({
+  security: INCIDENT_CATEGORY.SECURITY_THREAT,
+  medical: INCIDENT_CATEGORY.MEDICAL_EMERGENCY,
+  fire: INCIDENT_CATEGORY.FIRE,
+  accident: INCIDENT_CATEGORY.ROAD_ACCIDENT,
+  general_distress: INCIDENT_CATEGORY.OTHER,
+});
 
 const ALERTS_TABLE = 'alerts';
 const LIVE_LOCATIONS_TABLE = 'live_locations';
@@ -131,6 +147,20 @@ const normalizeAlertPayload = (alert, liveLocation, victim, extra = {}) => ({
   created_at: alert.created_at,
   updated_at: liveLocation?.updated_at ?? alert.updated_at ?? alert.created_at,
   resolved_at: alert.resolved_at ?? null,
+  suggested_category: alert.suggested_category ?? null,
+  confirmed_category: alert.confirmed_category ?? LEGACY_EMERGENCY_TYPE_TO_CATEGORY[alert.emergency_type] ?? null,
+  urgency_level: alert.urgency_level ?? null,
+  classification_confidence: alert.classification_confidence ?? null,
+  classification_source: alert.classification_source ?? null,
+  detected_language: alert.detected_language ?? 'unknown',
+  ai_explanation: alert.ai_explanation ?? null,
+  recommended_action: alert.recommended_action ?? null,
+  requires_moderator_attention: Boolean(alert.requires_moderator_attention),
+  verification_status: alert.verification_status ?? 'unverified',
+  visibility_level: alert.visibility_level ?? 'standard',
+  moderation_status: alert.moderation_status ?? 'pending_review',
+  people_affected: alert.people_affected ?? null,
+  assistance_needed: alert.assistance_needed ?? [],
   victim:
     victim == null
       ? null
@@ -198,6 +228,17 @@ const createSosAlert = async ({
   heading,
   speed,
   source = 'device',
+  suggestedCategory,
+  confirmedCategory,
+  urgencyLevel,
+  classificationSource,
+  classificationConfidence,
+  detectedLanguage,
+  aiExplanation,
+  recommendedAction,
+  peopleAffected,
+  assistanceNeeded,
+  immediateDanger,
 }) => {
   const victim = await userService.getUserById(userId);
 
@@ -216,15 +257,38 @@ const createSosAlert = async ({
     longitude: coordinates.longitude,
   });
 
+  const finalCategory =
+    confirmedCategory ?? suggestedCategory ?? LEGACY_EMERGENCY_TYPE_TO_CATEGORY[emergencyType] ?? null;
+  const isSensitiveCategory = finalCategory ? SENSITIVE_CATEGORIES.includes(finalCategory) : false;
+  // A user cannot claim credit for an AI/rules suggestion they then edited.
+  const normalizedClassificationSource =
+    confirmedCategory && suggestedCategory && confirmedCategory !== suggestedCategory
+      ? 'user'
+      : classificationSource ?? (confirmedCategory ? 'user' : null);
+  const finalUrgency = immediateDanger ? URGENCY_LEVEL.CRITICAL : urgencyLevel ?? null;
+
   const alert = await insertAlert({
     user_id: userId,
     emergency_type: emergencyType,
     description: description ?? '',
+    original_description: description ?? '',
     latitude: coordinates.latitude,
     longitude: coordinates.longitude,
     status: 'active',
     created_at: nowIso,
     updated_at: nowIso,
+    suggested_category: suggestedCategory ?? null,
+    confirmed_category: confirmedCategory ?? null,
+    urgency_level: finalUrgency,
+    classification_source: normalizedClassificationSource,
+    classification_confidence: classificationConfidence ?? null,
+    detected_language: detectedLanguage ?? 'unknown',
+    ai_explanation: aiExplanation ?? null,
+    recommended_action: recommendedAction ?? null,
+    people_affected: peopleAffected ?? null,
+    assistance_needed: assistanceNeeded ?? [],
+    visibility_level: isSensitiveCategory ? VISIBILITY_LEVEL.SENSITIVE : VISIBILITY_LEVEL.STANDARD,
+    requires_moderator_attention: Boolean(immediateDanger) || isSensitiveCategory || finalUrgency === URGENCY_LEVEL.CRITICAL,
   });
 
   const liveLocation = await upsertLiveAlertLocation({
@@ -408,15 +472,40 @@ const getNearbyActiveAlerts = async ({
   radiusMeters,
   excludeUserId,
 }) => {
-  return proximityService.listNearbyAlerts({
+  const alerts = await proximityService.listNearbyAlerts({
     latitude,
     longitude,
     radiusMeters,
     excludeUserId,
   });
+
+  if (alerts.length === 0) {
+    return alerts;
+  }
+
+  const alertIds = alerts.map((alert) => alert.id);
+  const [confirmationCounts, myConfirmations] = await runBestEffort(
+    'Alert confirmation counts',
+    () =>
+      Promise.all([
+        alertConfirmationService.getConfirmationCounts(alertIds),
+        alertConfirmationService.getUserConfirmationsForAlerts(excludeUserId, alertIds),
+      ]),
+    [new Map(), new Map()]
+  );
+
+  return alerts.map((alert) => ({
+    ...alert,
+    confirmation_counts: confirmationCounts.get(alert.id) ?? {
+      community_confirm: 0,
+      dispute: 0,
+      false_report: 0,
+    },
+    my_confirmation_type: myConfirmations.get(alert.id) ?? null,
+  }));
 };
 
-const upsertResponderResponse = async ({ alertId, responderId, status }) => {
+const upsertResponderResponse = async ({ alertId, responderId, status, capability, etaMinutes, note }) => {
   const { data: existingRows, error: existingError } = await supabaseAdmin
     .from(RESPONSES_TABLE)
     .select('*')
@@ -432,16 +521,22 @@ const upsertResponderResponse = async ({ alertId, responderId, status }) => {
   const existingResponse = Array.isArray(existingRows)
     ? existingRows[0] ?? null
     : null;
+  const updatePayload = {
+    response_status: status,
+    ...(capability !== undefined ? { capability } : {}),
+    ...(etaMinutes !== undefined ? { eta_minutes: etaMinutes } : {}),
+    ...(note !== undefined ? { note } : {}),
+  };
 
   if (existingResponse) {
     const query = existingResponse.id
       ? supabaseAdmin
           .from(RESPONSES_TABLE)
-          .update({ response_status: status })
+          .update(updatePayload)
           .eq('id', existingResponse.id)
       : supabaseAdmin
           .from(RESPONSES_TABLE)
-          .update({ response_status: status })
+          .update(updatePayload)
           .eq('alert_id', alertId)
           .eq('responder_id', responderId);
 
@@ -453,13 +548,16 @@ const upsertResponderResponse = async ({ alertId, responderId, status }) => {
 
     return Array.isArray(data) && data.length > 0
       ? data[0]
-      : { ...existingResponse, response_status: status };
+      : { ...existingResponse, ...updatePayload };
   }
 
   const insertPayload = {
     alert_id: alertId,
     responder_id: responderId,
     response_status: status,
+    capability: capability ?? null,
+    eta_minutes: etaMinutes ?? null,
+    note: note ?? null,
     created_at: new Date().toISOString(),
   };
 
@@ -497,6 +595,9 @@ const respondToAlert = async ({
   heading,
   speed,
   source = 'device',
+  capability,
+  etaMinutes,
+  note,
 }) => {
   const alert = await getAlertById(alertId);
 
@@ -524,7 +625,7 @@ const respondToAlert = async ({
   let syncStatus = 'incident_logged';
 
   try {
-    response = await upsertResponderResponse({ alertId, responderId, status });
+    response = await upsertResponderResponse({ alertId, responderId, status, capability, etaMinutes, note });
     syncStatus = 'response_record_synced';
   } catch (error) {
     const fallbackReason = isMissingRelation(error, RESPONSES_TABLE)
@@ -577,11 +678,23 @@ const getResponderFollowDetails = async ({
   responderLatitude,
   responderLongitude,
   travelMode = 'DRIVE',
+  requestingUser,
 }) => {
   const alert = await getAlertById(alertId);
 
   if (!alert || alert.status !== 'active') {
     throw new AppError('Active alert could not be found.', 404, 'alert_not_found');
+  }
+
+  const isOwner = requestingUser?.id === alert.user_id;
+  const isAuthorized = isOwner || isModeratorOrAdmin(requestingUser) || hasApprovedSensitiveRole(requestingUser);
+
+  if (alert.visibility_level === VISIBILITY_LEVEL.SENSITIVE && !isAuthorized) {
+    throw new AppError(
+      'This report has restricted visibility. Only an approved responder or moderator can navigate to it.',
+      403,
+      'sensitive_alert_restricted'
+    );
   }
 
   const victim = await userService.getUserById(alert.user_id);
