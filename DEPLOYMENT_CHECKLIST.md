@@ -12,14 +12,14 @@
 - [ ] Copy variable names from `server/.env.production.example`; do not upload that file with real values.
 - [ ] Set `NODE_ENV=production`, `DEBUG_AUTH_MODE=false`, and a strong `JWT_SECRET` or `SESSION_SECRET`.
 - [ ] Set Supabase, Google Maps server, Meta, WhatsApp, `APP_BASE_URL`, and strict `CORS_ORIGIN` values.
-- [ ] Set `WEBHOOK_URL=https://guidiannode-production.up.railway.app/webhook`.
+- [ ] Set `WEBHOOK_URL=https://guidiannode-api-production.up.railway.app/webhook`.
 - [ ] Run `npm ci --omit=dev`, `npm run build`, and `npm run check:env:prod`.
 - [ ] Confirm `/health` and `/ready` over HTTPS.
 
 ## Frontend Environment
 
 - [ ] Create ignored `config/flutter.production.json` from the example.
-- [ ] Set `API_BASE_URL=https://guidiannode-production.up.railway.app`.
+- [ ] Set `API_BASE_URL=https://guidiannode-api-production.up.railway.app`.
 - [ ] Set `WHATSAPP_TARGET_NUMBER=237657262038`.
 - [ ] Set only public client keys; never place service-role or Meta secrets in Flutter defines.
 - [ ] Run `flutter analyze`, `flutter test`, and the intended release build.
@@ -35,7 +35,7 @@
 
 ## Meta Webhook
 
-- [ ] Use callback URL `https://guidiannode-production.up.railway.app/webhook`.
+- [ ] Use callback URL `https://guidiannode-api-production.up.railway.app/webhook`.
 - [ ] Enter the exact private `WHATSAPP_VERIFY_TOKEN`.
 - [ ] Subscribe the WhatsApp account to `messages`.
 - [ ] Confirm GET verification returns the challenge.
@@ -54,7 +54,7 @@ Expected: `TEST_CHALLENGE`
 Production GET challenge:
 
 ```bash
-curl "https://guidiannode-production.up.railway.app/webhook?hub.mode=subscribe&hub.verify_token=PRODUCTION_VERIFY_TOKEN&hub.challenge=TEST_CHALLENGE"
+curl "https://guidiannode-api-production.up.railway.app/webhook?hub.mode=subscribe&hub.verify_token=PRODUCTION_VERIFY_TOKEN&hub.challenge=TEST_CHALLENGE"
 ```
 
 Expected: `TEST_CHALLENGE`

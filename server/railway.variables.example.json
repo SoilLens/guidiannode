@@ -3,7 +3,7 @@
   "APP_BASE_URL": "https://REPLACE_WITH_FRONTEND_DOMAIN",
   "CLIENT_ORIGIN": "https://REPLACE_WITH_FRONTEND_DOMAIN",
   "CORS_ORIGIN": "https://REPLACE_WITH_FRONTEND_DOMAIN",
-  "WEBHOOK_URL": "https://guidiannode-production.up.railway.app/webhook",
+  "WEBHOOK_URL": "https://guidiannode-api-production.up.railway.app/webhook",
   "DATABASE_URL": "",
   "SUPABASE_URL": "REPLACE_WITH_SUPABASE_URL",
   "SUPABASE_ANON_KEY": "REPLACE_WITH_SUPABASE_ANON_KEY",

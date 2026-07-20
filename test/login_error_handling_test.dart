@@ -35,9 +35,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(
-        'No internet connection. Please check your network and try again.',
-      ),
+      find.textContaining('Could not reach GuardianNode'),
       findsOneWidget,
     );
     expect(find.textContaining('10.0.2.2'), findsNothing);

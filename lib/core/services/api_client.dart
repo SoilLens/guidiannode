@@ -77,9 +77,14 @@ class ApiClient {
         'failed to fetch',
       ].any(normalized.contains);
 
+      // Browsers deliberately hide the real reason a fetch/XHR failed (DNS
+      // failure, no connectivity, and a CORS block from the server all throw
+      // the same generic error), so this can't be told apart from "no
+      // internet" on web. Keep the message honest about that instead of
+      // confidently blaming the user's network.
       throw ApiException(
         message: noInternet
-            ? 'No internet connection. Please check your network and try again.'
+            ? 'Could not reach GuardianNode. Check your connection -- if you are online, the server may be temporarily unavailable or blocking this app.'
             : 'Could not reach GuardianNode server. Please try again.',
         code: noInternet ? 'no_internet' : 'server_unreachable',
       );
