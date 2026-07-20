@@ -32,6 +32,7 @@ const files = [
   'validation/roleSchemas.js',
   'validation/confirmationSchemas.js',
   'validation/classificationSchemas.js',
+  'scripts/run-migrations.js',
 ];
 
 for (const file of files) {

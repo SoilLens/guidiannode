@@ -98,13 +98,39 @@ Editor, then replace every placeholder before deploying.
 
 ## Database
 
-Apply these scripts in Supabase SQL Editor before directing production traffic:
+### Automated (recommended)
+
+Set `DATABASE_URL` to Supabase's **direct Postgres connection string**
+(Project Settings -> Database -> Connection string -> URI -- this is
+different from `SUPABASE_URL`, which is the PostgREST API endpoint and
+cannot run raw SQL). Then run:
+
+```bash
+cd server
+npm run migrate
+```
+
+This applies every file below in the correct order and records what it has
+applied in a `schema_migrations` table, so re-running it on every deploy is
+safe and only new files actually execute. All files are also individually
+idempotent (`if not exists` / `drop ... if exists`), so running this against
+a database that already has some of them applied manually is harmless.
+
+Wire it into Railway as a one-off "Run Command" after setting `DATABASE_URL`,
+or run it locally against production whenever a new migration file is added.
+
+### Manual fallback
+
+If `DATABASE_URL` isn't available, apply these scripts in the Supabase SQL
+Editor instead, in this order, before directing production traffic:
 
 ```text
 server/sql/create_otp_sessions.sql
 server/sql/add_enum_value.sql
 server/sql/add_whatsapp_verification_columns.sql
 server/sql/add_whatsapp_verification_index.sql
+server/sql/create_live_locations.sql
+server/sql/create_alert_responses.sql
 server/sql/reload_schema_cache.sql
 server/sql/add_role_and_verification_columns.sql
 server/sql/add_alert_intelligence_fields.sql
